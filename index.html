@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Gamepad Bağlantı</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+    .btn { width: 60px; height: 60px; margin: 10px; font-size: 20px; }
+    .highlight { background-color: red; color: white; }
+    #panel { display: flex; flex-wrap: wrap; justify-content: center; max-width: 300px; margin: auto; }
+  </style>
+</head>
+<body>
+
+<h1>Telefon mu PC mi?</h1>
+<button onclick="selectRole('phone')">Telefon</button>
+<button onclick="selectRole('pc')">PC</button>
+
+<div id="auth" style="display:none;"></div>
+<div id="panel" style="display:none;"></div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-database-compat.js"></script>
+<script>
+  // 🔧 Aşağıyı kendi Firebase bilgilerinle değiştir
+  const firebaseConfig = {
+    apiKey: "FIREBASE_API_KEY",
+    authDomain: "FIREBASE_PROJECT.firebaseapp.com",
+    databaseURL: "https://FIREBASE_PROJECT.firebaseio.com",
+    projectId: "FIREBASE_PROJECT",
+    storageBucket: "FIREBASE_PROJECT.appspot.com",
+    messagingSenderId: "000000000000",
+    appId: "1:000000000000:web:0000000000000000"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  let role = "", sessionCode = "";
+
+  const keys = ['A','B','X','Y','↑','↓','←','→'];
+
+  function selectRole(r) {
+    role = r;
+    document.querySelector('h1').style.display = 'none';
+    document.querySelectorAll('button').forEach(b => b.style.display = 'none');
+
+    if (role === 'phone') {
+      sessionCode = Math.floor(1000 + Math.random()*9000).toString();
+      db.ref("sessions/" + sessionCode).set({ key: "" });
+      document.getElementById("auth").innerHTML = `<h2>Kod: <b>${sessionCode}</b></h2>`;
+      renderGamepad();
+    } else {
+      document.getElementById("auth").innerHTML = `
+        <h2>Kodu Gir:</h2>
+        <input id="codeInput" maxlength="4">
+        <button onclick="joinSession()">Giriş</button>
+      `;
+    }
+    document.getElementById("auth").style.display = "block";
+  }
+
+  function joinSession() {
+    sessionCode = document.getElementById("codeInput").value;
+    db.ref("sessions/" + sessionCode).once("value", snap => {
+      if (snap.exists()) {
+        renderGamepad();
+        listenKeys();
+      } else {
+        alert("Kod bulunamadı!");
+      }
+    });
+  }
+
+  function renderGamepad() {
+    document.getElementById("panel").innerHTML = "";
+    keys.forEach(k => {
+      const btn = document.createElement("button");
+      btn.className = "btn";
+      btn.innerText = k;
+      if (role === "phone") {
+        btn.onclick = () => {
+          db.ref("sessions/" + sessionCode).set({ key: k });
+        };
+      }
+      document.getElementById("panel").appendChild(btn);
+    });
+    document.getElementById("panel").style.display = "flex";
+  }
+
+  function listenKeys() {
+    db.ref("sessions/" + sessionCode + "/key").on("value", snap => {
+      const val = snap.val();
+      document.querySelectorAll(".btn").forEach(b => {
+        b.classList.toggle("highlight", b.innerText === val);
+      });
+    });
+  }
+</script>
+</body>
+</html>
